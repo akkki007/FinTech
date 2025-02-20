@@ -1,119 +1,136 @@
 import { useEffect, useState } from "react";
-import Sidebar from "./SideBar";
 
 const Transactions = () => {
-    const [transactions, setTransactions] = useState([]);
-    const [userId, setUserId] = useState(null);
-    const [loading, setLoading] = useState(true); // Loading state
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [email, setEmail] = useState("");
 
-    // Fetch User ID from Cookie
-    useEffect(() => {
-        const fetchUserId = async () => {
-            try {
-                const emailCookie = document.cookie
-                    .split("; ")
-                    .find((row) => row.startsWith("email="));
+  // ✅ Get Email from Cookies
+  useEffect(() => {
+    const emailCookie = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("email="))
+      ?.split("=")[1];
 
-                if (!emailCookie) {
-                    console.error("No email found in cookies");
-                    setLoading(false); // Stop loading if no email is found
-                    return;
-                }
+    if (emailCookie) {
+      const decodedEmail = decodeURIComponent(emailCookie);
+      console.log("📧 Decoded Email:", decodedEmail);
+      setEmail(decodedEmail);
+    } else {
+      console.error("❌ No email found in cookies!");
+      setError("No email found. Please log in.");
+    }
+  }, []);
 
-                const email = decodeURIComponent(emailCookie.split("=")[1]);
-                console.log("Fetching user ID for email:", email);
+  // ✅ Fetch Transactions from Backend
+  const fetchTransactions = async () => {
+    if (!email) {
+      console.warn("⏳ Waiting for email to be set before fetching transactions...");
+      return;
+    }
 
-                const response = await fetch("http://localhost:3000/api/user?email=" + email);
+    try {
+      console.log("📨 Sending request to /transactions with email:", email);
+      setLoading(true);
 
-                if (!response.ok) {
-                    throw new Error(`API error: ${response.status} ${response.statusText}`);
-                }
+      const response = await fetch("http://localhost:3000/api/plaid/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
 
-                const data = await response.json();
-                console.log("User ID:", data.userId);
-                setUserId(data.userId);
-            } catch (error) {
-                console.error("Error fetching user ID:", error);
-                setLoading(false); // Stop loading on error
-            }
-        };
+      console.log("🔍 Response Status:", response.status); // Log the status
 
-        fetchUserId();
-    }, []);
+      const data = await response.json();
+      console.log("🔍 Response Data:", data); // Log the data
 
-    // Fetch Transactions after getting userId
-    useEffect(() => {
-        const fetchTransactions = async () => {
-            if (!userId) return;
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch transactions");
+      }
 
-            try {
-                const response = await fetch(`http://localhost:3000/api/transactions/${userId}`, {
-                    method: 'GET',
-                    credentials: 'include',
-                });
+      setTransactions(data.transactions);
+    } catch (error) {
+      console.error("❌ Fetch Transactions Error:", error.message);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-                if (!response.ok) {
-                    throw new Error(`API error: ${response.status} ${response.statusText}`);
-                }
+  // ✅ Simulate Transactions & Fetch Updated Data
+  const simulateTransactions = async () => {
+    if (!email) {
+      console.warn("⏳ Cannot simulate transactions without email.");
+      return;
+    }
 
-                const data = await response.json();
-                console.log("Transactions:", data);
+    try {
+      setLoading(true);
+      console.log("📨 Simulating transactions for:", email);
 
-                setTransactions(data);
-            } catch (error) {
-                console.error("Error fetching transactions:", error);
-            } finally {
-                setLoading(false); // Stop loading after fetching transactions
-            }
-        };
+      const response = await fetch("http://localhost:3000/api/plaid/simulate_transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
 
-        fetchTransactions();
-    }, [userId]);
+      console.log("🔍 Simulation Response Status:", response.status);
 
-    return (
-        <div className="flex">
-            <Sidebar />
-            {loading ? (
-                // Loading spinner or message
-                <div className="flex justify-center items-center h-screen w-full">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
-                    <p className="ml-4">Loading transactions...</p>
-                </div>
-            ) : transactions.length === 0 ? (
-                // No transactions found
-                <p className="mx-68 my-5">No transactions found.</p>
-            ) : (
-                // Display transactions
-                <ul className="mx-68 my-5">
-                    {transactions.map((transaction) => (
-                        <Transaction key={transaction.transaction_id} transaction={transaction} />
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
-};
+      const data = await response.json();
+      console.log("🔍 Simulated Transactions:", data);
 
-// ✅ Single Transaction Component
-const Transaction = ({ transaction }) => {
-    return (
-        <li style={{ border: "1px solid #ddd", padding: "10px", margin: "10px", borderRadius: "5px" }}>
-            <h3>{transaction.name}</h3>
-            <p><strong>Amount:</strong> ${transaction.amount} {transaction.iso_currency_code}</p>
-            <p><strong>Date:</strong> {transaction.date}</p>
-            <p><strong>Category:</strong> {transaction.category?.join(" > ") || "N/A"}</p>
-            <p><strong>Type:</strong> {transaction.transaction_type}</p>
-            <p><strong>Payment Channel:</strong> {transaction.payment_channel}</p>
-            {transaction.personal_finance_category && (
-                <p>
-                    <strong>Category:</strong> {transaction.personal_finance_category.primary} ({transaction.personal_finance_category.detailed})
-                </p>
-            )}
-            {transaction.personal_finance_category_icon_url && (
-                <img src={transaction.personal_finance_category_icon_url} alt="Category Icon" width="50" />
-            )}
-        </li>
-    );
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to simulate transactions");
+      }
+
+      setTransactions(data.transactions);
+    } catch (error) {
+      console.error("❌ Simulate Transactions Error:", error.message);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Fetch Transactions when Component Mounts & when Email Changes
+  useEffect(() => {
+    if (email) {
+      fetchTransactions();
+    }
+  }, [email]);
+
+  return (
+    <div className="p-6 bg-white rounded-lg shadow-md">
+      <h2 className="text-2xl font-semibold mb-4">Business Transactions</h2>
+
+      {error && <p className="text-red-500">{error}</p>}
+
+      {/* ✅ Simulate Transactions Button */}
+      <button
+        onClick={simulateTransactions}
+        className="bg-blue-500 text-white px-4 py-2 rounded-md mb-4 disabled:opacity-50"
+        disabled={loading}
+      >
+        {loading ? "Processing..." : "Simulate Transactions"}
+      </button>
+
+      {/* ✅ Display Transactions */}
+      {transactions.length > 0 ? (
+        <ul className="space-y-2">
+          {transactions.map((tx) => (
+            <li key={tx.transactionId} className="p-4 bg-gray-100 rounded-lg shadow-sm">
+              <p className="font-medium">{tx.category}</p>
+              <p className="text-gray-600">${tx.amount}</p>
+              <p className="text-gray-400">{new Date(tx.date).toLocaleDateString()}</p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-gray-500">No business transactions found.</p>
+      )}
+    </div>
+  );
 };
 
 export default Transactions;

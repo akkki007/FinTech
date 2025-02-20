@@ -8,7 +8,7 @@ const Sidebar = ({ section }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
-
+  const [email,setEmail] = useState('');
   useEffect(() => {
     const checkAuth = () => {
       try {
@@ -20,6 +20,7 @@ const Sidebar = ({ section }) => {
         const token = Cookies.get('token', cookieOptions);
         const username = Cookies.get('username', cookieOptions);
         const email = Cookies.get('email', cookieOptions);
+        setEmail(email);
 
         if (!username || !email) {
           console.log('No token found, redirecting to login');
