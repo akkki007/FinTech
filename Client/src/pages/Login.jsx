@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import logo from "../assets/logo.png";
 import { useNavigate } from "react-router-dom";
 
@@ -7,6 +7,14 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  useEffect(()=>{
+    const token = localStorage.getItem('token');
+    if(token){
+      navigate('/dashboard');
+    }
+  })
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,18 +26,18 @@ export default function Login() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // ✅ Ensure cookies are sent
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
-      if (response.status === 401) {
-        setError('Invalid email or password');
-      } else if (response.ok) {
-        navigate('/dashboard');
-      } else {
+      if (!response.ok) {
         setError(data.message || 'Login failed');
+        return;
       }
+
+      navigate('/dashboard');
     } catch (err) {
       setError('An error occurred. Please try again.');
     }
