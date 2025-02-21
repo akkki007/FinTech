@@ -1,12 +1,12 @@
 import React from 'react'
 import CashFlowChart from '../components/CashFlowCharts'
-import Sidebar from '../components/SideBar'
+import TaxEstimator from '../components/TaxEstimator'
 
 const Reports = () => {
   return (
-    <div>
-        {/* <Sidebar/> */}
+    <div className='flex'>
       <CashFlowChart/>
+      <TaxEstimator/>
     </div>
   )
 }

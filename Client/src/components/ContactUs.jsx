@@ -1,17 +1,21 @@
 import React from "react";
 import { FaMapMarkerAlt, FaClock } from "react-icons/fa";
+import Navbar from "./Navbar";
+import Footer from "./Footer";
 
 const Contact = () => {
     return (
         <>
-            <div className="flex flex-col">
-                <div className="mt-0">
-                    <h3 className="font-manrope text-5xl text-center font-bold text-gray-900 bg-[#e9f2cb]">
-                        Contact us
-                    </h3>
-                </div>
+            <div className="absolute">
+                <Navbar />
+            </div>
+            <div className="flex flex-col ">
+                
+                <h3 className="poppins-medium font-manrope text-5xl text-center font-bold text-gray-900 bg-[#e9f2cb] mt-15">
+                    <br></br>Contact us<br></br><br></br>
+                </h3>
 
-                <div className="flex flex-col md:flex-row items-center justify-center p-8 bg-[#e9f2cb]">
+                <div className="flex poppins-medium flex-col md:flex-row items-center justify-center p-8 bg-[#e9f2cb]">
                     {/* Left Side - Contact Form */}
                     <div className="w-full md:w-1/2 bg-[#e9f2cb] p-8 shadow-lg shadow-lime-700 rounded-lg">
                         <h2 className="text-2xl font-bold mb-4 text-[#31572c]">Send us a Message</h2>
@@ -79,9 +83,10 @@ const Contact = () => {
                             loading="lazy"
                         ></iframe>
                     </div>
+                    <br></br><br></br>
                 </div>
             </div>
-
+            <Footer />
         </>
     );
 };

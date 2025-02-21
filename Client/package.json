@@ -30,6 +30,7 @@
     "@tanstack/react-table": "^8.21.2",
     "axios": "^1.7.9",
     "chart.js": "^4.4.8",
+    "gsap": "^3.12.7",
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.475.0",
     "moment": "^2.30.1",

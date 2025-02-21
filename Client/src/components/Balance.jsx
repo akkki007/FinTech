@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ Use navigate instead of redirect
+import { useNavigate } from "react-router-dom";
 
 const Balance = ({ displayedAccounts = [] }) => {
   const [balances, setBalances] = useState([]);
   const [email, setEmail] = useState("");
   const [error, setError] = useState(null);
   const [userId, setUserId] = useState(null);
-  const navigate = useNavigate(); // ✅ Fix redirect issue
+  const navigate = useNavigate();
 
+  // ✅ Fetch user ID from cookies on component mount
   useEffect(() => {
     const fetchUserId = async () => {
       try {
@@ -17,12 +18,12 @@ const Balance = ({ displayedAccounts = [] }) => {
 
         if (!emailCookie) {
           console.error("No email found in cookies. Redirecting to login.");
-          navigate("/login"); // ✅ Proper redirect
+          navigate("/login");
           return;
         }
 
         const email = decodeURIComponent(emailCookie.split("=")[1]);
-        setEmail(email); // ✅ Set email state
+        setEmail(email);
 
         const response = await fetch(`http://localhost:3000/api/user?email=${email}`);
         if (!response.ok) {
@@ -37,13 +38,14 @@ const Balance = ({ displayedAccounts = [] }) => {
     };
 
     fetchUserId();
-  }, [navigate]); // ✅ Dependency added to avoid stale closure issue
+  }, [navigate]);
 
+  // ✅ Fetch unique user-specific business accounts & balances
   const fetchUpdatedBalances = async () => {
     try {
       console.log(`Fetching updated balances for email: ${email}`);
 
-      const response = await fetch("http://localhost:3000/api/plaid/accounts", {
+      const response = await fetch("http://localhost:3000/api/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -58,20 +60,20 @@ const Balance = ({ displayedAccounts = [] }) => {
       
       if (!data.accounts || data.accounts.length === 0) {
         setError("No accounts found.");
-        setBalances([]); // ✅ Ensure state is updated even if empty
+        setBalances([]);
         return;
       }
 
-      console.log("Fetched accounts:", data.accounts); // ✅ Debugging log
+      console.log("Fetched accounts:", data.accounts);
 
-      // ✅ Ensure correct filtering by matching account IDs
+      // ✅ Ensure correct filtering by matching account numbers
       const businessBalances = data.accounts.filter((account) =>
-        displayedAccounts.some((displayed) => displayed.account_id === account.account_id)
+        displayedAccounts.some((displayed) => displayed.accountNumber === account.accountNumber)
       );
 
-      console.log("Filtered Business Balances:", businessBalances); // ✅ Debugging log
+      console.log("Filtered Business Balances:", businessBalances);
 
-      setBalances(businessBalances.length > 0 ? businessBalances : data.accounts); // ✅ Show all if filtering removes everything
+      setBalances(businessBalances.length > 0 ? businessBalances : data.accounts);
 
     } catch (error) {
       setError("Error fetching updated balances: " + error.message);
@@ -79,20 +81,21 @@ const Balance = ({ displayedAccounts = [] }) => {
     }
   };
 
+  // ✅ Fetch updated balances when user logs in
   useEffect(() => {
     if (!userId || !email || displayedAccounts.length === 0) return;
     fetchUpdatedBalances();
   }, [userId, email, displayedAccounts]);
 
-  // ✅ Run balance update only AFTER successful fetch
+  // ✅ Simulate balance update for the logged-in user
   const simulateBalanceUpdate = async () => {
     try {
       console.log(`Simulating balance update for email: ${email}`);
 
-      const response = await fetch("http://localhost:3000/api/plaid/simulate_balance", {
+      const response = await fetch("http://localhost:3000/api/accounts/simulate_balance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }), // ✅ Ensure email is passed
+        body: JSON.stringify({ email }),
       });
 
       if (!response.ok) {
@@ -101,7 +104,7 @@ const Balance = ({ displayedAccounts = [] }) => {
       }
 
       console.log("Balance update simulated successfully!");
-      fetchUpdatedBalances(); // ✅ Fetch updated balances after simulation
+      fetchUpdatedBalances();
 
     } catch (error) {
       setError("Error simulating balance update: " + error.message);
@@ -125,8 +128,9 @@ const Balance = ({ displayedAccounts = [] }) => {
       <ul className="space-y-2">
         {balances.length > 0 ? (
           balances.map((account) => (
-            <li key={account.account_id} className="p-4 bg-gray-100 rounded-lg shadow-sm">
-              <span className="font-medium">{account.name}</span> - <span className="text-green-600">${account.balances.current}</span>
+            <li key={account.accountNumber} className="p-4 bg-gray-100 rounded-lg shadow-sm">
+              <span className="font-medium">{account.name}</span> - 
+              <span className="text-green-600"> ${account.balance.toFixed(2)}</span>
             </li>
           ))
         ) : (

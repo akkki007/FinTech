@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Sidebar from "../components/SideBar";
 import Cookies from "js-cookie";
 
@@ -7,6 +7,29 @@ const Chatbot = () => {
     const [messages, setMessages] = useState([]);
     const [userId, setUserId] = useState(null);
     const [email, setEmail] = useState("");
+    const [loading, setLoading] = useState(false);
+    const chatEndRef = useRef(null);
+
+    // ✅ Format response correctly
+    const formatResponse = (text) => {
+        if (!text) return "";
+
+        try {
+            const parsed = JSON.parse(text);
+            if (typeof parsed === "string") {
+                text = parsed; // Convert if it's a string inside JSON
+            } else if (typeof parsed === "object") {
+                text = JSON.stringify(parsed, null, 2); // Convert object to formatted string
+            }
+        } catch (e) {
+            // Not a JSON string, continue as is
+        }
+
+        return String(text)
+            .replace(/\n/g, "<br>")
+            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold
+            .replace(/==(.*?)==/g, "<mark>$1</mark>"); // Highlight
+    };
 
     // ✅ Fetch User ID on Component Mount
     useEffect(() => {
@@ -19,15 +42,8 @@ const Chatbot = () => {
                 }
                 setEmail(emailFromCookie);
 
-                // ✅ Use query parameter instead of body in GET request
-                const response = await fetch(`http://localhost:3000/api/user?email=${encodeURIComponent(emailFromCookie)}`, {
-                    method: "GET",
-                    headers: { "Content-Type": "application/json" },
-                });
-
-                if (!response.ok) {
-                    throw new Error("Failed to fetch user ID");
-                }
+                const response = await fetch(`http://localhost:3000/api/user?email=${encodeURIComponent(emailFromCookie)}`);
+                if (!response.ok) throw new Error("Failed to fetch user ID");
 
                 const data = await response.json();
                 setUserId(data.userId);
@@ -35,110 +51,136 @@ const Chatbot = () => {
                 console.error("❌ Error fetching user ID:", error);
             }
         };
-
         fetchUserId();
     }, []);
 
     // ✅ Fetch Chat History when `userId` is Available
     useEffect(() => {
         if (userId) {
+            const fetchChatHistory = async () => {
+                try {
+                    const response = await fetch(`http://localhost:3000/api/chat/history/${userId}`);
+                    if (!response.ok) throw new Error("Failed to fetch chat history");
+
+                    const data = await response.json();
+                    console.log("✅ Chat History API Response:", data);
+
+                    const formattedMessages = data.messages.map(msg => ({
+                        question: msg.question,
+                        answer: formatResponse(msg.response)
+                    }));
+
+                    setMessages(formattedMessages);
+                } catch (error) {
+                    console.error("❌ Error fetching chat history:", error);
+                }
+            };
             fetchChatHistory();
         }
     }, [userId]);
 
-    const fetchChatHistory = async () => {
-        try {
-            const response = await fetch(`http://localhost:3000/api/chat/history/${userId}`);
-            if (!response.ok) throw new Error("Failed to fetch chat history");
+    // ✅ Auto-scroll to latest message
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
 
-            const data = await response.json();
-            setMessages(data.messages);
-        } catch (error) {
-            console.error("❌ Error fetching chat history:", error);
-        }
-    };
-
+    // ✅ Send Message Function
     const sendMessage = async () => {
         if (!question.trim()) return;
-    
+
+        setLoading(true);
+
+        // ✅ Add temporary user message
+        const tempUserMessage = { question, answer: "⏳ Generating response...", tempId: Date.now() };
+        setMessages((prev) => [...prev, tempUserMessage]);
+
         try {
-            // 1. Create temporary message with pending state
-            const tempUserMessage = { 
-                sender: "User", 
-                text: question,
-                tempId: Date.now() // Unique identifier for optimistic update
-            };
-            setMessages((prev) => [...prev, tempUserMessage]);
-    
-            // 2. Send to backend
             const response = await fetch("http://localhost:3000/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId, question }),
             });
-    
-            if (!response.ok) throw new Error("Failed to save message");
-    
-            // 3. Replace temporary message with persisted message
+
+            if (!response.ok) throw new Error("Failed to send message");
+
             const data = await response.json();
-            setMessages((prev) => 
-                prev.map(msg => 
-                    msg.tempId === tempUserMessage.tempId 
-                        ? { ...data.userMessage } // From backend
-                        : msg
-                ).concat(data.botMessage) // Add bot response
+            console.log("✅ API Response:", data); // Debugging response
+
+            let formattedAnswer = data.answer;
+
+            if (typeof formattedAnswer === "object") {
+                formattedAnswer = JSON.stringify(formattedAnswer, null, 2); // Convert object to string
+            }
+
+            formattedAnswer = formatResponse(formattedAnswer);
+
+            setMessages((prev) =>
+                prev.filter(msg => msg.tempId !== tempUserMessage.tempId).concat([{ question, answer: formattedAnswer }])
             );
-    
         } catch (error) {
             console.error("❌ Error:", error);
-            // Remove temporary message on error
-            setMessages((prev) => 
-                prev.filter(msg => msg.tempId !== tempUserMessage.tempId)
-            );
-            setMessages((prev) => [...prev, { 
-                sender: "Bot", 
-                text: "Failed to save history. Please try again." 
-            }]);
+            setMessages((prev) => prev.filter(msg => msg.tempId !== tempUserMessage.tempId)); // Remove loading msg
+            setMessages((prev) => [...prev, { question, answer: "❌ Failed to send. Try again." }]);
         }
-    
+
+        setLoading(false);
         setQuestion("");
     };
 
     return (
-        <div>
+        <div className="flex">
             <Sidebar />
-            <div style={styles.container}>
-                <h2>Finance Chatbot</h2>
-                <div style={styles.chatbox}>
+            <div className="w-full max-w-3xl mx-auto p-6">
+                <h2 className="text-2xl font-semibold text-center mb-4">Finance Chatbot</h2>
+
+                <div className="flex flex-col p-4 h-96 overflow-y-auto bg-gray-100 rounded-lg shadow-md">
                     {messages.map((msg, index) => (
-                        <div key={index} style={msg.sender === "User" ? styles.userMessage : styles.botMessage}>
-                            <strong>{msg.sender}: </strong>{msg.text}
+                        <div key={index} className="flex flex-col my-2">
+                            {/* User Question */}
+                            <div className="flex items-center space-x-2 justify-end">
+                                <span className="text-2xl">👤</span>
+                                <div className="p-3 rounded-lg shadow-md bg-blue-500 text-white max-w-xs">
+                                    <p className="font-semibold">{msg.question}</p>
+                                </div>
+                            </div>
+
+                            {/* ✅ Bot Answer */}
+                            <div className="flex items-center space-x-2 justify-start mt-1">
+                                <span className="text-2xl">🤖</span>
+                                <div className="p-3 rounded-lg shadow-md bg-gray-300 text-black max-w-xs">
+                                    <p
+                                        className="text-sm"
+                                        dangerouslySetInnerHTML={{ __html: msg.answer }} // ✅ Render formatted HTML
+                                    />
+                                </div>
+                            </div>
                         </div>
                     ))}
+                    <div ref={chatEndRef}></div>
                 </div>
-                <div style={styles.inputContainer}>
+
+                {/* Loading Animation */}
+                {loading && <p className="text-center text-blue-500 mt-2">🤖 Thinking...</p>}
+
+                <div className="flex mt-4">
                     <input
                         type="text"
                         value={question}
                         onChange={(e) => setQuestion(e.target.value)}
                         placeholder="Ask about finance..."
-                        style={styles.input}
+                        className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none"
                     />
-                    <button onClick={sendMessage} style={styles.button}>Send</button>
+                    <button
+                        onClick={sendMessage}
+                        className="ml-2 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                        disabled={loading}
+                    >
+                        {loading ? "Sending..." : "Send"}
+                    </button>
                 </div>
             </div>
         </div>
     );
-};
-
-const styles = {
-    container: { maxWidth: "600px", margin: "auto", padding: "20px", textAlign: "center" },
-    chatbox: { border: "1px solid #ccc", padding: "10px", height: "300px", overflowY: "auto", backgroundColor: "#f9f9f9" },
-    userMessage: { textAlign: "right", padding: "5px", margin: "5px", backgroundColor: "#dcf8c6", borderRadius: "10px" },
-    botMessage: { textAlign: "left", padding: "5px", margin: "5px", backgroundColor: "#f1f1f1", borderRadius: "10px" },
-    inputContainer: { display: "flex", marginTop: "10px" },
-    input: { flex: 1, padding: "10px", border: "1px solid #ccc", borderRadius: "5px" },
-    button: { marginLeft: "10px", padding: "10px", backgroundColor: "#007bff", color: "#fff", border: "none", borderRadius: "5px", cursor: "pointer" }
 };
 
 export default Chatbot;

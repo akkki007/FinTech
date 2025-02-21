@@ -11,6 +11,7 @@ import Services from './components/Services';
 import Contact from './components/ContactUs';
 import Reports from './pages/Reports';
 import AskAI from './pages/AskAi';
+import About from './components/About';
 
 
 const App = () => {
@@ -26,11 +27,12 @@ const App = () => {
         <Route path='/profile' element={<Profile />} />
         <Route path='/transactions' element={<Transactions/>} />
         <Route path='/balance' element={<Balance />} />
+        <Route path='/About' element={<About/>}/>
         <Route path='*' element={<h1>Not Found</h1>} />
         <Route path='/services' element={<Services/>} />
         <Route path='/contactus' element={<Contact/>}/>
         <Route path='/reports' element={<Reports/>}/>
-        <Route path="/test" element={<AskAI/>} />
+        <Route path="/talktoai" element={<AskAI/>} />
         <Route path='/home' element={<Home />} />
       </Routes>
     </Router>

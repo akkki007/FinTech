@@ -9,6 +9,8 @@ const CashFlowChart = () => {
   const [cashflow, setCashflow] = useState([]);
   const [predictedCashflow, setPredictedCashflow] = useState(null);
   const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // ✅ Get Email from Cookies
   useEffect(() => {
@@ -28,16 +30,30 @@ const CashFlowChart = () => {
 
     const fetchCashflow = async () => {
       try {
+        setLoading(true);
+        setError("");
+
         const response = await fetch("http://localhost:3000/api/report/cashflow", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
         });
 
+        if (!response.ok) throw new Error("Failed to fetch cash flow data");
+
         const data = await response.json();
-        setCashflow(data.cashflow);
+
+        if (!data.cashflow || data.cashflow.length === 0) {
+          setError("No cash flow data available.");
+          setCashflow([]);
+        } else {
+          setCashflow(data.cashflow);
+        }
       } catch (error) {
         console.error("❌ Error fetching cash flow:", error.message);
+        setError("Unable to load cash flow data.");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -55,6 +71,8 @@ const CashFlowChart = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
         });
+
+        if (!response.ok) throw new Error("Failed to fetch predicted cash flow");
 
         const data = await response.json();
         setPredictedCashflow(data.predicted_cashflow);
@@ -86,22 +104,27 @@ const CashFlowChart = () => {
   };
 
   return (
-
     <div>
-      <div>
-      <Sidebar/>
+      <Sidebar />
+      <div className="p-6 mx-72 mt-5 bg-white rounded-lg shadow-md">
+        <h2 className="text-2xl font-semibold mb-4">Cash Flow Prediction</h2>
+
+        {loading ? (
+          <p className="text-blue-500">⏳ Loading cash flow data...</p>
+        ) : error ? (
+          <p className="text-red-500">{error}</p>
+        ) : cashflow.length === 0 ? (
+          <p className="text-gray-500">📉 No cash flow data available.</p>
+        ) : (
+          <Line data={chartData} />
+        )}
+
+        {predictedCashflow !== null && !isNaN(predictedCashflow) && (
+          <p className="text-lg font-bold mt-4">
+            🔮 Predicted Cash Flow for Next Week: ${predictedCashflow.toFixed(2)}
+          </p>
+        )}
       </div>
-      <div className="p-6 mx-64 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-semibold mb-4">Cash Flow Prediction</h2>
-
-      <Line data={chartData} />
-
-      {predictedCashflow !== null && !isNaN(predictedCashflow) && (
-  <p className="text-lg font-bold mt-4">
-    🔮 Predicted Cash Flow for Next Week: ${predictedCashflow.toFixed(2)}
-  </p>
-)}
-    </div>
     </div>
   );
 };
