@@ -1,7 +1,7 @@
 import { useState } from "react";
 import logo from "../assets/logo.png";
 import { useNavigate } from "react-router-dom";
-
+import  Navbar  from "../components/Navbar"
 export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -38,6 +38,7 @@ export default function Register() {
 
   return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#132a13] via-[#204c2d] to-[#31572c] p-6">
+        <Navbar/>
         <div className="w-full max-w-md bg-white/10 backdrop-blur-lg p-8 rounded-2xl shadow-lg border border-white/20">
           <div className="text-center">
             <img src={logo} alt="Company Logo" className="mx-auto h-20 w-auto" />
