@@ -18,6 +18,31 @@ router.use(
   })
 );
 
+const transformToBusinessTransaction = (transaction) => {
+  // Determine if the transaction is a credit or debit
+  const transactionType = transaction.amount >= 0 ? "credit" : "debit";
+
+  // Example transformation logic
+  const businessCategories = {
+    "Food and Drink": "Business Meal",
+    "Travel": "Business Travel",
+    "Payment": "Business Payment",
+    "Shops": "Business Supplies",
+    "Transfer": "Business Transfer",
+    "Recreation": "Business Entertainment",
+  };
+
+  const category = transaction.category ? transaction.category[0] : "Uncategorized";
+  const businessDescription = businessCategories[category] || "Business Expense";
+
+  return {
+    ...transaction,
+    businessDescription,
+    category: businessDescription,
+    transactionType,
+  };
+};
+
 // ✅ Create a Sandbox Business User & Return Public Token
 router.post("/create_sandbox_user", async (req, res) => {
   try {
@@ -95,137 +120,171 @@ router.post("/accounts", async (req, res) => {
   }
 });
 
-// ✅ Fetch & Store Business Transactions in MongoDB
-router.post("/transactions", async (req, res) => {
+
+
+// ✅ Route to Generate and Store Dummy Transactions
+router.post("/dummy_transactions", async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "Email is required" });
 
-    const user = await User.findOne({ email });
-    if (!user || !user.plaidAccessToken)
-      return res.status(400).json({ error: "User not found or no linked bank account" });
+    const transactions = [
+      {
+        transactionId: "txn_001",
+        amount: 500,
+        date: new Date(),
+        category: "Business Income",
+        Trtype: "credit",
+      },
+      {
+        transactionId: "txn_002",
+        amount: -200,
+        date: new Date(),
+        category: "Office Supplies",
+        Trtype: "debit",
+      },
+      {
+        transactionId: "txn_003",
+        amount: -50.75,
+        date: new Date(),
+        category: "Business Meal",
+        Trtype: "debit",
+      },
+      {
+        transactionId: "txn_004",
+        amount: 1000,
+        date: new Date(),
+        category: "Client Payment",
+        Trtype: "credit",
+      },
+      {
+        transactionId: "txn_005",
+        amount: -120.45,
+        date: new Date(),
+        category: "Software Subscription",
+        Trtype: "debit",
+      },
+      {
+        transactionId: "txn_006",
+        amount: 750.3,
+        date: new Date(),
+        category: "Freelance Work",
+        Trtype: "credit",
+      },
+      {
+        transactionId: "txn_007",
+        amount: -300.9,
+        date: new Date(),
+        category: "Rent",
+        Trtype: "debit",
+      },
+      {
+        transactionId: "txn_008",
+        amount: 1500.25,
+        date: new Date(),
+        category: "Consulting Fee",
+        Trtype: "credit",
+      },
+      {
+        transactionId: "txn_009",
+        amount: -45.6,
+        date: new Date(),
+        category: "Transportation",
+        Trtype: "debit",
+      },
+      {
+        transactionId: "txn_010",
+        amount: 2000,
+        date: new Date(),
+        category: "Product Sales",
+        Trtype: "credit",
+      },
+      {
+        transactionId: "txn_011",
+        amount: -89.99,
+        date: new Date(),
+        category: "Marketing",
+        Trtype: "debit",
+      },
+      {
+        transactionId: "txn_012",
+        amount: 300.5,
+        date: new Date(),
+        category: "Interest Income",
+        Trtype: "credit",
+      },
+      {
+        transactionId: "txn_013",
+        amount: -150.75,
+        date: new Date(),
+        category: "Utilities",
+        Trtype: "debit",
+      },
+      {
+        transactionId: "txn_014",
+        amount: 450.8,
+        date: new Date(),
+        category: "Referral Bonus",
+        Trtype: "credit",
+      },
+      {
+        transactionId: "txn_015",
+        amount: -75.25,
+        date: new Date(),
+        category: "Office Maintenance",
+        Trtype: "debit",
+      },
+      {
+        transactionId: "txn_016",
+        amount: 1200,
+        date: new Date(),
+        category: "Project Payment",
+        Trtype: "credit",
+      },
+      {
+        transactionId: "txn_017",
+        amount: -60.4,
+        date: new Date(),
+        category: "Internet Bill",
+        Trtype: "debit",
+      },
+      {
+        transactionId: "txn_018",
+        amount: 800.9,
+        date: new Date(),
+        category: "Training Revenue",
+        Trtype: "credit",
+      },
+      {
+        transactionId: "txn_019",
+        amount: -95.5,
+        date: new Date(),
+        category: "Office Snacks",
+        Trtype: "debit",
+      },
+      {
+        transactionId: "txn_020",
+        amount: 2500,
+        date: new Date(),
+        category: "Contract Work",
+        Trtype: "credit",
+      },
+    ];
 
-    console.log("🔍 Fetching transactions for:", email);
+    const user = await User.findOneAndUpdate(
+      { email },
+      { $push: { transactions: { $each: transactions } } }, // ✅ Push array of objects
+      { new: true, upsert: true }
+    );
 
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 90); // ✅ Fetch last 90 days
-    const formattedStartDate = startDate.toISOString().split("T")[0];
-    const formattedEndDate = new Date().toISOString().split("T")[0];
-
-    // ✅ Fetch transactions from Plaid
-    const response = await fetch(`${PLAID_ENV}/transactions/get`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: PLAID_CLIENT_ID,
-        secret: PLAID_SECRET,
-        access_token: user.plaidAccessToken,
-        start_date: formattedStartDate,
-        end_date: formattedEndDate,
-      }),
-    });
-
-    const data = await response.json();
-    console.log("📊 Plaid Transactions Response:", JSON.stringify(data, null, 2)); // ✅ Debug full response
-
-    if (!response.ok) throw new Error(data.error_message || "Failed to fetch transactions");
-
-    const businessTransactions = data.transactions
-      .filter((tx) =>
-        ["checking", "credit card", "merchant account", "business"].includes(tx.account?.subtype)
-      )
-      .map((tx) => ({
-        transactionId: tx.transaction_id,
-        amount: tx.amount,
-        date: new Date(tx.date),
-        category: tx.category ? tx.category.join(", ") : "Uncategorized",
-      }));
-
-    console.log("✅ Filtered Business Transactions:", businessTransactions.length);
-
-    user.transactions = businessTransactions;
-    user.updatedAt = new Date();
-    await user.save();
-
-    res.json({ transactions: businessTransactions });
+    return res.json({ message: "Dummy transactions added", transactions: user.transactions });
   } catch (error) {
-    console.error("❌ Error fetching transactions:", error.message);
-    res.status(500).json({ error: "Failed to fetch transactions" });
+    console.error("❌ Error creating dummy transactions:", error);
+    return res.status(500).json({ error: "Server error" });
   }
 });
 
-// ✅ Simulate Business Transactions & Store in MongoDB
-router.post("/simulate_transactions", async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email is required" });
 
-    const user = await User.findOne({ email });
-    if (!user || !user.plaidAccessToken)
-      return res.status(400).json({ error: "User not found or no linked bank account" });
-
-    console.log("🔄 Simulating transactions for:", email);
-
-    // ✅ Trigger Sandbox Transaction Refresh
-    const refreshResponse = await fetch(`${PLAID_ENV}/sandbox/transactions/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: PLAID_CLIENT_ID,
-        secret: PLAID_SECRET,
-        access_token: user.plaidAccessToken,
-      }),
-    });
-
-    const refreshData = await refreshResponse.json();
-    console.log("🔄 Sandbox Refresh Response:", refreshData); // ✅ Debug sandbox refresh
-
-    if (!refreshResponse.ok) throw new Error(refreshData.error_message || "Failed to refresh transactions");
-
-    // ✅ Wait for transactions to update
-    await new Promise((resolve) => setTimeout(resolve, 3000)); // Wait 3 seconds
-
-    // ✅ Fetch updated transactions
-    const transactionsResponse = await fetch(`${PLAID_ENV}/transactions/get`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: PLAID_CLIENT_ID,
-        secret: PLAID_SECRET,
-        access_token: user.plaidAccessToken,
-        start_date: "2024-01-01",
-        end_date: new Date().toISOString().split("T")[0],
-      }),
-    });
-
-    const data = await transactionsResponse.json();
-    console.log("📊 Simulated Transactions Response:", JSON.stringify(data, null, 2)); // ✅ Debug response
-
-    if (!transactionsResponse.ok) throw new Error(data.error_message || "Failed to fetch transactions");
-
-    const businessTransactions = data.transactions
-      .filter((tx) =>
-        ["checking", "credit card", "merchant account", "business"].includes(tx.account?.subtype)
-      )
-      .map((tx) => ({
-        transactionId: tx.transaction_id,
-        amount: tx.amount,
-        date: new Date(tx.date),
-        category: tx.category ? tx.category.join(", ") : "Uncategorized",
-      }));
-
-    console.log("✅ Filtered Simulated Transactions:", businessTransactions.length);
-
-    user.transactions = businessTransactions;
-    user.updatedAt = new Date();
-    await user.save();
-
-    res.json({ message: "Transactions simulated & updated successfully", transactions: businessTransactions });
-  } catch (error) {
-    console.error("❌ Error simulating transactions:", error.message);
-    res.status(500).json({ error: "Failed to simulate transactions" });
-  }
-});
 
 
 export default router;

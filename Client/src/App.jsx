@@ -9,6 +9,8 @@ import Transactions from './components/Transactions';
 import Balance from './components/Balance';
 import Services from './components/Services';
 import Contact from './components/ContactUs';
+import Reports from './pages/Reports';
+import AskAI from './pages/AskAi';
 
 
 const App = () => {
@@ -27,6 +29,9 @@ const App = () => {
         <Route path='*' element={<h1>Not Found</h1>} />
         <Route path='/services' element={<Services/>} />
         <Route path='/contactus' element={<Contact/>}/>
+        <Route path='/reports' element={<Reports/>}/>
+        <Route path="/test" element={<AskAI/>} />
+        <Route path='/home' element={<Home />} />
       </Routes>
     </Router>
   );

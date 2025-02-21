@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { redirect } from "react-router-dom";
+import { useNavigate } from "react-router-dom"; // ✅ Use navigate instead of redirect
 
-const Balance = ({ displayedAccounts = [] }) => {  // ✅ Prevents undefined errors
+const Balance = ({ displayedAccounts = [] }) => {
   const [balances, setBalances] = useState([]);
   const [email, setEmail] = useState("");
   const [error, setError] = useState(null);
   const [userId, setUserId] = useState(null);
+  const navigate = useNavigate(); // ✅ Fix redirect issue
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -16,7 +17,7 @@ const Balance = ({ displayedAccounts = [] }) => {  // ✅ Prevents undefined err
 
         if (!emailCookie) {
           console.error("No email found in cookies. Redirecting to login.");
-          redirect("/login");
+          navigate("/login"); // ✅ Proper redirect
           return;
         }
 
@@ -36,7 +37,7 @@ const Balance = ({ displayedAccounts = [] }) => {  // ✅ Prevents undefined err
     };
 
     fetchUserId();
-  }, []);
+  }, [navigate]); // ✅ Dependency added to avoid stale closure issue
 
   const fetchUpdatedBalances = async () => {
     try {
@@ -45,7 +46,7 @@ const Balance = ({ displayedAccounts = [] }) => {  // ✅ Prevents undefined err
       const response = await fetch("http://localhost:3000/api/plaid/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email }),
+        body: JSON.stringify({ email }),
       });
 
       if (!response.ok) {
@@ -55,19 +56,22 @@ const Balance = ({ displayedAccounts = [] }) => {  // ✅ Prevents undefined err
 
       const data = await response.json();
       
-      // ✅ Prevent error if accounts are undefined
-      if (!data.accounts) {
+      if (!data.accounts || data.accounts.length === 0) {
         setError("No accounts found.");
+        setBalances([]); // ✅ Ensure state is updated even if empty
         return;
       }
 
-      // ✅ Filter balances to only include displayed business accounts
-      const businessBalances = data.accounts.filter((account) => 
+      console.log("Fetched accounts:", data.accounts); // ✅ Debugging log
+
+      // ✅ Ensure correct filtering by matching account IDs
+      const businessBalances = data.accounts.filter((account) =>
         displayedAccounts.some((displayed) => displayed.account_id === account.account_id)
       );
 
-      setBalances(businessBalances);
-      console.log("Updated filtered balances:", businessBalances);
+      console.log("Filtered Business Balances:", businessBalances); // ✅ Debugging log
+
+      setBalances(businessBalances.length > 0 ? businessBalances : data.accounts); // ✅ Show all if filtering removes everything
 
     } catch (error) {
       setError("Error fetching updated balances: " + error.message);
@@ -75,50 +79,49 @@ const Balance = ({ displayedAccounts = [] }) => {  // ✅ Prevents undefined err
     }
   };
 
-
   useEffect(() => {
     if (!userId || !email || displayedAccounts.length === 0) return;
     fetchUpdatedBalances();
-  }, [userId, email, displayedAccounts]); // ✅ Runs when displayedAccounts updates
+  }, [userId, email, displayedAccounts]);
 
-  // ✅ Simulate balance update **only when email and userId are available**
-  useEffect(() => {
-    if (!userId || !email) return;
+  // ✅ Run balance update only AFTER successful fetch
+  const simulateBalanceUpdate = async () => {
+    try {
+      console.log(`Simulating balance update for email: ${email}`);
 
-    const simulateBalanceUpdate = async () => {
-      try {
-        console.log(`Simulating balance update for email: ${email}`);
+      const response = await fetch("http://localhost:3000/api/plaid/simulate_balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }), // ✅ Ensure email is passed
+      });
 
-        const response = await fetch("http://localhost:3000/api/plaid/simulate_balance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email }), // ✅ Ensure email is passed
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to simulate balance update");
-        }
-
-        console.log("Balance update simulated successfully!");
-        fetchUpdatedBalances(); // ✅ Fetch updated balances after simulation
-
-      } catch (error) {
-        setError("Error simulating balance update: " + error.message);
-        console.error("Error in simulateBalanceUpdate:", error);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to simulate balance update");
       }
-    };
 
-    simulateBalanceUpdate();
-  }, [userId, email]);
+      console.log("Balance update simulated successfully!");
+      fetchUpdatedBalances(); // ✅ Fetch updated balances after simulation
 
-  // ✅ Fetch updated balances when displayedAccounts changes
-  
+    } catch (error) {
+      setError("Error simulating balance update: " + error.message);
+      console.error("Error in simulateBalanceUpdate:", error);
+    }
+  };
 
   return (
     <div className="p-6 m-10 -mx-16 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-semibold mb-4">Business Account Balances</h2>
       {error && <p className="text-red-500 mb-4">{error}</p>}
+      
+      {/* ✅ Simulate Balance Update Button */}
+      <button 
+        onClick={simulateBalanceUpdate} 
+        className="bg-blue-500 text-white px-4 py-2 rounded-md mb-4"
+      >
+        Simulate Balance Update
+      </button>
+
       <ul className="space-y-2">
         {balances.length > 0 ? (
           balances.map((account) => (

@@ -9,6 +9,8 @@ import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
 import session from "express-session";
 import moment from "moment/moment.js";
 import plaidRoutes from "./routes/plaidRoutes.js";
+import cashflows from "./routes/cashflows.js";
+import Message from "./models/message.js";
 dotenv.config();
 connectDB();
 
@@ -67,138 +69,6 @@ app.get("/api/user", async (req, res) => {
     }
   });
   
-
-// Create a Link Token for Frontend
-    app.get("/api/create_link_token", async (req, res) => {
-    try {
-      const userId = req.sessionID; // Use logged-in user's ID in production
-  
-      const response = await plaidClient.linkTokenCreate({
-        user: { client_user_id: userId },
-        client_name: "My SaaS App",
-        language: "en",
-        products: ["transactions"],
-        country_codes: ["US"],
-      });
-  
-      res.json(response.data);
-    } catch (error) {
-      console.error("Error creating link token:", error);
-      res.status(500).json({ error: "Failed to create link token" });
-    }
-  });
-  // Exchange Public Token for Access Token
-  app.post("/api/exchange_public_token", async (req, res) => {
-    try {
-      const { public_token, userId } = req.body; // userId comes from frontend
-  
-      const exchangeResponse = await plaidClient.itemPublicTokenExchange({
-        public_token,
-      });
-  
-      const { access_token, item_id } = exchangeResponse.data;
-  
-      // Store access_token and item_id in MongoDB
-      await User.findByIdAndUpdate(userId, {
-        plaidAccessToken: access_token,
-        plaidItemId: item_id,
-      });
-      
-      res.json({ success: true, message: "Bank account linked successfully" });
-    } catch (error) {
-      console.error("Error exchanging public token:", error);
-      res.status(500).json({ error: "Failed to exchange public token" });
-    }
-  });
-  // Fetch Transactions
-  app.get("/api/transactions/:userId", async (req, res) => {
-    try {
-      const { userId } = req.params;
-  
-      if (!userId || userId === "undefined") {
-        return res.status(400).json({ error: "Invalid or missing user ID" });
-      }
-  
-      const user = await User.findById(userId);
-      if (!user || !user.plaidAccessToken) {
-        return res.status(404).json({ error: "User not found or no linked account" });
-      }
-  
-      const startDate = moment().subtract(30, "days").format("YYYY-MM-DD");
-      const endDate = moment().format("YYYY-MM-DD");
-  
-      const response = await plaidClient.transactionsGet({
-        access_token: user.plaidAccessToken,
-        start_date: startDate,
-        end_date: endDate,
-        options: { count: 20 },
-      });
-  
-      res.json(response.data.transactions);
-    } catch (error) {
-      console.error("Error fetching transactions:", error);
-      res.status(500).json({ error: "Failed to fetch transactions" });
-    }
-  });
-  
-  // Fetch the balance
-  app.get("/api/balance/:userId", async (req, res) => {
-    try {
-      const user = await User.findById(req.params.userId);
-      if (!user || !user.plaidAccessToken) {
-        return res.status(404).json({ error: "User or access token not found" });
-      }
-  
-      const response = await plaidClient.accountsBalanceGet({
-        access_token: user.plaidAccessToken,
-      });
-  
-      res.json(response.data.accounts);
-    } catch (error) {
-      console.error("Error fetching balance:", error);
-      res.status(500).json({ error: "Failed to fetch balance" });
-    }
-  });
-  app.get("/bank_account/:userId", async (req, res) => {
-    try {
-        const { userId } = req.params;
-
-        // Find user by ID and select relevant fields
-        const user = await User.findById(userId).select("plaidAccessToken plaidItemId");
-
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        if (!user.plaidAccessToken) {
-            return res.status(400).json({ message: "No linked bank account found" });
-        }
-
-        // Fetch bank accounts from Plaid API
-        const response = await fetch("https://sandbox.plaid.com/accounts/get", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                client_id: process.env.PLAID_CLIENT_ID,
-                secret: process.env.PLAID_SECRET,
-                access_token: user.plaidAccessToken,
-            }),
-        });
-
-        const data = await response.json();
-
-        if (data.error) {
-            return res.status(400).json({ message: "Error fetching bank accounts", error: data.error });
-        }
-
-        res.json(data.accounts);
-    } catch (error) {
-        console.error("Error fetching bank accounts:", error);
-        res.status(500).json({ message: "Internal server error" });
-    }
-});
   
 
 app.post('/register', async (req, res) => {
@@ -236,10 +106,78 @@ app.get('/protected', authenticate, (req, res) => {
 });
 
 app.use("/api/plaid", plaidRoutes);
+app.use("/api/report",cashflows)
 
+const WORQHAT_API_KEY = process.env.API_KEY;
+const WORQHAT_API_URL = "https://api.worqhat.com/api/ai/content/v4";
 
+app.post("/api/chat", async (req, res) => {
+  try {
+      const { userId, question } = req.body;
 
+      if (!userId || !question) {
+          return res.status(400).json({ error: "User ID and question are required" });
+      }
 
-app.listen(process.env.PORT | 3000,(req,res)=>{
+      // Fetch AI response from Worqhat
+      const requestBody = JSON.stringify({
+          question: question,
+          training_data: "Provide financial advice if asked. Use 'answer' as the key.",
+          response_type: "json",
+          model: "aicon-v4-nano-160824"
+      });
+
+      const response = await fetch(WORQHAT_API_URL, {
+          method: "POST",
+          headers: {
+              "Authorization": `Bearer ${WORQHAT_API_KEY}`,
+              "Content-Type": "application/json"
+          },
+          body: requestBody
+      });
+
+      const responseData = await response.json();
+      let answer = "Sorry, I couldn't process that.";
+
+      if (responseData && responseData.content) {
+          try {
+              const contentJson = JSON.parse(responseData.content);
+              answer = contentJson.answer || answer;
+          } catch (error) {
+              answer = responseData.content;
+          }
+      }
+
+      // ✅ Save Message in MongoDB
+      const newMessage = new Message({
+          userId,
+          question,
+          response: answer
+      });
+      await newMessage.save();
+
+      res.json({ answer });
+
+  } catch (error) {
+      console.error("❌ Error communicating with Worqhat API:", error.message);
+      res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// ✅ Get Chat History for a User
+app.get("/api/chat/history/:userId", async (req, res) => {
+  try {
+      const { userId } = req.params;
+
+      const messages = await Message.find({ userId }).sort({ timestamp: -1 });
+      res.json({ messages });
+
+  } catch (error) {
+      console.error("❌ Error fetching chat history:", error.message);
+      res.status(500).json({ error: "Failed to fetch chat history" });
+  }
+});
+
+app.listen(process.env.PORT | 3000,()=>{
     console.log("Server is running on port http://localhost:3000");
 });
