@@ -11,7 +11,7 @@ import moment from "moment/moment.js";
 import plaidRoutes from "./routes/plaidRoutes.js";
 import cashflows from "./routes/cashflows.js";
 import Message from "./models/message.js";
-import { Transaction } from "./models/AccTrs.js";
+import { Account, Transaction } from "./models/AccTrs.js";
 dotenv.config();
 connectDB();
 
@@ -266,6 +266,100 @@ app.get("/api/chat/history/:userId", async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching chat history:", error.message);
     res.status(500).json({ error: "Failed to fetch chat history" });
+  }
+});
+
+const RAG_API_URL = "http://localhost:8000/ask"; // FastAPI URL
+
+app.post("/ask", async (req, res) => {
+    try {
+      const { query } = req.body;
+      if (!query) return res.status(400).json({ error: "Query is required" });
+
+      const response = await fetch(RAG_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} - ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Error fetching data" });
+    }
+});
+
+app.get("/api/finance/health/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Fetch accounts
+    const accounts = await Account.find({ userId });
+
+    // Fetch transactions
+    const transactions = await Transaction.find({ userId }).sort({ date: -1 });
+
+    // Aggregate account balances
+    const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+
+    // Categorize transactions
+    const categorizedExpenses = transactions.reduce((acc, tx) => {
+      if (tx.transactionType === "debit") {
+        acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
+      }
+      return acc;
+    }, {});
+
+    // Predicted cash flow
+    const predictedCashflow = user.predicted_cashflow || 0;
+
+    res.json({
+      userId,
+      totalBalance,
+      categorizedExpenses,
+      predictedCashflow,
+      recentTransactions: transactions.slice(0, 5), // Return last 5 transactions
+    });
+  } catch (error) {
+    console.error("Error fetching financial health:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.put("/api/user/update/:id", async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    const userId = req.params.id;
+
+    // Find user by ID
+    let user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Update fields
+    user.name = name || user.name;
+    user.email = email || user.email;
+
+    // Hash password if updated
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(password, salt);
+    }
+
+    await user.save();
+    res.json({ message: "Profile updated successfully" });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 

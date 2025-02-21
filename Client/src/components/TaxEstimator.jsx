@@ -45,7 +45,7 @@ const TaxEstimator = () => {
       />
       <button
         onClick={estimateTax}
-        className="bg-blue-500 text-white p-2 w-full rounded-md"
+        className="bg-[#31572C] text-white p-2 w-full rounded-md"
       >
         Estimate Tax
       </button>

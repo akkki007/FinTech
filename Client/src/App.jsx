@@ -12,6 +12,8 @@ import Contact from './components/ContactUs';
 import Reports from './pages/Reports';
 import AskAI from './pages/AskAi';
 import About from './components/About';
+import CustomerSupport from './components/Customer';
+import FinanceHealth from './components/FinanceHealthAnalytics';
 
 
 const App = () => {
@@ -19,8 +21,6 @@ const App = () => {
     <Router>
       <Routes>
         <Route path='/' element={<Home />} />
-        {/* <Route path='/about' element={<About />} />
-        <Route path='/contact' element={<Contact />} /> */}
         <Route path='/login' element={<Login />} />
         <Route path='/register' element={<Register />} />
         <Route path='/dashboard' element={<Dashboard />} />
@@ -34,6 +34,9 @@ const App = () => {
         <Route path='/reports' element={<Reports/>}/>
         <Route path="/talktoai" element={<AskAI/>} />
         <Route path='/home' element={<Home />} />
+        <Route path="/customer-support" element={<CustomerSupport />} />
+        <Route path='/finance' element={<FinanceHealth />}/>
+        <Route path='/profile' element={<Profile />} />
       </Routes>
     </Router>
   );

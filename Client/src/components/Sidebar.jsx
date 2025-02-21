@@ -61,6 +61,15 @@ const Sidebar = ({ section }) => {
       )
     },
     { 
+      name: "Finance health", 
+      path: "/finance", 
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      )
+    },
+    { 
       name: "Profile", 
       path: "/profile", 
       icon: (
@@ -80,7 +89,7 @@ const Sidebar = ({ section }) => {
       )
     },
     { 
-      name: "Reports", 
+      name: "Tax Estimation", 
       path: "/reports", 
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -99,7 +108,7 @@ const Sidebar = ({ section }) => {
     },
     { 
       name: "Customer Support", 
-      path: "/customer", 
+      path: "/customer-support", 
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -117,7 +126,7 @@ const Sidebar = ({ section }) => {
   }
 
   return (
-    <div className={`h-screen ${isCollapsed ? 'w-20' : 'w-64'} bg-white fixed dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 ease-in-out`}>
+    <div className={`h-screen ${isCollapsed ? 'w-20' : 'w-64'} bg-white fixed dark:bg-[#132A13] border-r border-gray-200 dark:border-gray-800 transition-all duration-300 ease-in-out`}>
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
         {!isCollapsed && (
           <span className="text-xl font-semibold text-gray-800 dark:text-white">
@@ -126,10 +135,10 @@ const Sidebar = ({ section }) => {
         )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-green transition-colors"
         >
           <svg
-            className="w-6 h-6 text-gray-600 dark:text-gray-400"
+            className="w-6 h-6 text-white dark:text-gray-400"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -146,23 +155,22 @@ const Sidebar = ({ section }) => {
 
       <div className="flex-1 overflow-y-auto">
         <nav className="p-4 space-y-2">
-        {menuItems.map((item) => (
-  <Link
-    key={item.name}
-    to={item.path}
-    className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start'} p-3 rounded-lg transition-colors
-      ${
-        location.pathname === item.path || section === item.name // Check if section matches item.name
-          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-semibold'
-          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-      }`}
-  >
-    {item.icon}
-    {!isCollapsed && <span className="ml-3 font-medium">{item.name}</span>}
-  </Link>
-))}
+          {menuItems.map((item) => (
+            <Link
+              key={item.name}
+              to={item.path}
+              className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start'} p-3 rounded-lg transition-colors
+      ${location.pathname === item.path || section === item.name // Check if section matches item.name
+                  ? 'bg-blue-50 dark:bg-blue-900/20 text-white dark:text-white font-semibold'
+                  : 'text-white dark:text-white hover:bg-gray-100 dark:hover:bg-green-700'
+                }`}
+            >
+              {item.icon}
+              {!isCollapsed && <span className="ml-3 font-medium">{item.name}</span>}
+            </Link>
+          ))}
 
-          
+
           <button
             onClick={handleLogout}
             className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'justify-start'} p-3 rounded-lg
@@ -182,7 +190,7 @@ const Sidebar = ({ section }) => {
         <div className="p-4 border-t border-gray-200 dark:border-gray-800">
           <div className="flex items-center space-x-3">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-[#90A955] flex items-center justify-center">
                 <span className="text-white text-sm font-medium">
                   {user.name.charAt(0)}
                 </span>
